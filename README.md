@@ -1,5 +1,3 @@
-# Multi-Factor-Equity-Screener
-
 # Multi-Factor Equity Screener
 
 Ranks the S&P 500 by combining five factor families — valuation,
