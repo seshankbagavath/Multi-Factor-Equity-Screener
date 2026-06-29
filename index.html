@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FactorForge — Multi-Factor Equity Screener</title>
+<meta name="description" content="Ranks the S&P 500 by blending five factor families — value, profitability, momentum, volatility, and growth — into a single composite score, with an interactive Plotly dashboard." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #f7f5ef;          /* warm beige page */
+    --surface: #ffffff;     /* card white */
+    --surface-soft: #fbfaf6;
+    --beige: #efe9dd;
+    --border: #e7e2d6;
+    --text: #1c2420;        /* dark neutral */
+    --text-muted: #6b756e;  /* muted gray-green */
+    --accent: #1f7a5a;      /* green */
+    --accent-soft: #e6f1ea;
+    --accent-deep: #155c43;
+    --radius: 18px;
+    --radius-sm: 12px;
+    --shadow: 0 1px 2px rgba(28,36,32,.04), 0 8px 24px rgba(28,36,32,.05);
+    --shadow-hover: 0 4px 8px rgba(28,36,32,.06), 0 16px 40px rgba(28,36,32,.09);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, .brand { font-family: 'Space Grotesk', sans-serif; letter-spacing: -.02em; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---- Nav ---- */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(247,245,239,.82);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 19px; }
+  .brand .mark {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: var(--accent); color: #fff;
+    display: grid; place-items: center; font-size: 16px; font-weight: 700;
+  }
+  .nav-links { display: flex; align-items: center; gap: 28px; }
+  .nav-links a { color: var(--text-muted); font-size: 14.5px; font-weight: 500; transition: color .15s; }
+  .nav-links a:hover { color: var(--text); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14.5px;
+    padding: 10px 18px; border-radius: 10px; cursor: pointer;
+    border: 1px solid transparent; transition: all .16s ease;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-deep); transform: translateY(-1px); }
+  .btn-ghost { background: var(--surface); color: var(--text); border-color: var(--border); }
+  .btn-ghost:hover { border-color: #cfc8b8; transform: translateY(-1px); }
+  @media (max-width: 720px) { .nav-links a:not(.btn) { display: none; } }
+
+  /* ---- Hero ---- */
+  header { padding: 84px 0 56px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent-soft); color: var(--accent-deep);
+    font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 999px;
+    margin-bottom: 24px;
+  }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  header h1 { font-size: clamp(38px, 6vw, 60px); font-weight: 700; line-height: 1.05; max-width: 16ch; }
+  header h1 .grad { color: var(--accent); }
+  header p.lead { font-size: 19px; color: var(--text-muted); max-width: 56ch; margin: 22px 0 32px; }
+  .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+  /* ---- Stat strip ---- */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 56px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 20px 22px; box-shadow: var(--shadow); }
+  .stat .num { font-family: 'Space Grotesk'; font-size: 30px; font-weight: 700; color: var(--accent); }
+  .stat .lbl { font-size: 13.5px; color: var(--text-muted); margin-top: 2px; }
+  @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ---- Sections ---- */
+  section { padding: 64px 0; }
+  .section-head { text-align: center; max-width: 60ch; margin: 0 auto 44px; }
+  .section-head .eyebrow { color: var(--accent); font-weight: 600; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+  .section-head h2 { font-size: clamp(28px, 4vw, 38px); margin: 10px 0 12px; }
+  .section-head p { color: var(--text-muted); font-size: 17px; }
+
+  /* ---- Factor cards ---- */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  @media (max-width: 880px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 26px; box-shadow: var(--shadow); transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+  .card .ico {
+    width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft);
+    display: grid; place-items: center; margin-bottom: 16px;
+  }
+  .card .ico svg { width: 22px; height: 22px; stroke: var(--accent); fill: none; stroke-width: 1.8; }
+  .card h3 { font-size: 18px; margin-bottom: 6px; }
+  .card p { color: var(--text-muted); font-size: 14.5px; }
+  .card .weight { display: inline-block; margin-top: 14px; font-size: 12.5px; font-weight: 600; color: var(--accent-deep); background: var(--accent-soft); padding: 3px 10px; border-radius: 999px; }
+
+  /* ---- How it works ---- */
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  @media (max-width: 880px) { .steps { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 460px) { .steps { grid-template-columns: 1fr; } }
+  .step { background: var(--surface-soft); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 22px; position: relative; }
+  .step .n { font-family: 'Space Grotesk'; font-weight: 700; color: var(--accent); font-size: 14px; border: 1.5px solid var(--accent); width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; margin-bottom: 14px; }
+  .step h3 { font-size: 16px; margin-bottom: 6px; }
+  .step p { font-size: 14px; color: var(--text-muted); }
+
+  /* ---- Quickstart ---- */
+  .quickstart { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 40px; box-shadow: var(--shadow); display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: center; }
+  @media (max-width: 760px) { .quickstart { grid-template-columns: 1fr; padding: 28px; } }
+  .quickstart h2 { font-size: 30px; margin-bottom: 14px; }
+  .quickstart ol { list-style: none; counter-reset: q; }
+  .quickstart li { counter-increment: q; padding: 10px 0 10px 40px; position: relative; color: var(--text-muted); }
+  .quickstart li::before { content: counter(q); position: absolute; left: 0; top: 8px; width: 26px; height: 26px; background: var(--accent-soft); color: var(--accent-deep); font-weight: 700; font-size: 13px; border-radius: 8px; display: grid; place-items: center; font-family: 'Space Grotesk'; }
+  .quickstart li b { color: var(--text); }
+  .code {
+    background: #14201a; border-radius: var(--radius-sm); padding: 22px; font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+    font-size: 13px; line-height: 1.85; color: #d7e6dd; overflow-x: auto;
+  }
+  .code .c { color: #7fae9a; }
+  .code .k { color: #7fd1aa; }
+  .code .b { color: #fff; }
+
+  /* ---- Data quality note ---- */
+  .note { background: var(--accent-soft); border: 1px solid #cfe4d8; border-radius: var(--radius); padding: 32px 36px; }
+  .note h3 { color: var(--accent-deep); font-size: 20px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+  .note p { color: #2f4a3e; font-size: 15px; }
+  .note ul { margin: 14px 0 0 18px; color: #2f4a3e; font-size: 14.5px; }
+  .note li { margin-bottom: 6px; }
+
+  /* ---- CTA ---- */
+  .cta { text-align: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 56px 32px; box-shadow: var(--shadow); }
+  .cta h2 { font-size: clamp(28px, 4vw, 36px); margin-bottom: 12px; }
+  .cta p { color: var(--text-muted); font-size: 17px; margin-bottom: 28px; }
+
+  /* ---- Footer ---- */
+  footer { border-top: 1px solid var(--border); padding: 36px 0; margin-top: 24px; }
+  .foot-inner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; color: var(--text-muted); font-size: 14px; }
+  .foot-inner .tech span { color: var(--text); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-inner">
+    <div class="brand"><span class="mark">F</span> FactorForge</div>
+    <div class="nav-links">
+      <a href="#factors">Factors</a>
+      <a href="#how">How it works</a>
+      <a href="#quickstart">Quickstart</a>
+      <a class="btn btn-primary" href="https://colab.research.google.com/github/seshankbagavath/Multi-Factor-Equity-Screener/blob/main/screener_colab.ipynb" target="_blank" rel="noopener">Open in Colab →</a>
+    </div>
+  </div>
+</nav>
+
+<header>
+  <div class="wrap">
+    <span class="pill"><span class="dot"></span> Multi-Factor Equity Screener</span>
+    <h1>Rank the S&amp;P 500 with a single <span class="grad">composite factor score</span>.</h1>
+    <p class="lead">FactorForge blends five factor families — value, profitability, momentum, volatility, and growth — into one cross-sectional score, then ranks every name into deciles with an interactive Plotly dashboard.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="https://colab.research.google.com/github/seshankbagavath/Multi-Factor-Equity-Screener/blob/main/screener_colab.ipynb" target="_blank" rel="noopener">▶ Run in Google Colab</a>
+      <a class="btn btn-ghost" href="https://github.com/seshankbagavath/Multi-Factor-Equity-Screener" target="_blank" rel="noopener">View on GitHub</a>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="num">~500</div><div class="lbl">S&amp;P 500 equities scored</div></div>
+      <div class="stat"><div class="num">5</div><div class="lbl">Factor families</div></div>
+      <div class="stat"><div class="num">10</div><div class="lbl">Decile rankings</div></div>
+      <div class="stat"><div class="num">4</div><div class="lbl">Interactive dashboards</div></div>
+    </div>
+  </div>
+</header>
+
+<section id="factors">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">The Model</span>
+      <h2>Five factor families, one score</h2>
+      <p>Each family is z-scored cross-sectionally, averaged, then combined with renormalized weights so partial coverage never penalizes a name.</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 1v22M5 6h11a3 3 0 0 1 0 6H8a3 3 0 0 0 0 6h11"/></svg></div>
+        <h3>Value</h3>
+        <p>Earnings, book, and EBITDA yields — inverted so cheaper is better. Winsorized at the point of inversion.</p>
+        <span class="weight">25% weight</span>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
+        <h3>Profitability</h3>
+        <p>Return on equity & assets, gross and net margins — quality metrics, already oriented higher-is-better.</p>
+        <span class="weight">25% weight</span>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg></div>
+        <h3>Momentum</h3>
+        <p>12-1 price momentum from the price panel, skipping the most recent month. Full-history filter kills spinoff artifacts.</p>
+        <span class="weight">20% weight</span>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M3 12h3l3-9 4 18 3-9h5"/></svg></div>
+        <h3>Volatility</h3>
+        <p>Annualized realized volatility, inverted for a low-vol tilt — calmer names score higher.</p>
+        <span class="weight">15% weight</span>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 20V8"/><path d="M6 20v-6"/><path d="M18 20V4"/></svg></div>
+        <h3>Growth</h3>
+        <p>Revenue and earnings growth — capturing the trajectory of the underlying business.</p>
+        <span class="weight">15% weight</span>
+      </div>
+      <div class="card" style="background:var(--surface-soft);">
+        <div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+        <h3>Composite</h3>
+        <p>Weighted sum of family z-scores, renormalized per stock over available data, ranked into deciles 1–10.</p>
+        <span class="weight">final score</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how" style="background:var(--surface-soft); border-top:1px solid var(--border); border-bottom:1px solid var(--border);">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Pipeline</span>
+      <h2>How it works</h2>
+      <p>From raw market data to a ranked leaderboard in four stages — every network call is fault-tolerant and cached.</p>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><h3>Collect</h3><p>Batch-pull 2y prices and per-ticker fundamentals via yfinance, cached to disk for 24h.</p></div>
+      <div class="step"><div class="n">2</div><h3>Clean</h3><p>Coerce types, neutralize infinities, winsorize outliers, and impute with the sector median.</p></div>
+      <div class="step"><div class="n">3</div><h3>Score</h3><p>Cross-sectional z-score, average within families, weight, and combine into one composite.</p></div>
+      <div class="step"><div class="n">4</div><h3>Rank &amp; visualize</h3><p>Bucket into deciles and export a leaderboard CSV plus a 4-panel interactive dashboard.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="note">
+      <h3>🛡 Data-quality engineering</h3>
+      <p>Real market data is messy. The guiding rule throughout: <b>winsorize every derived metric where it is created</b>, not just the raw inputs.</p>
+      <ul>
+        <li><b>Spinoff momentum artifact</b> — a recently spun-off ticker's discontinuous price history produced an 18-sigma outlier. Fixed with a minimum-history filter and price-factor winsorization.</li>
+        <li><b>Corrupted valuation ratio</b> — a near-zero price-to-book inverted into an absurd book yield (~576). Fixed by winsorizing inverted metrics at the point of creation.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="quickstart">
+  <div class="wrap">
+    <div class="quickstart">
+      <div>
+        <h2>Quickstart</h2>
+        <ol>
+          <li><b>Open the notebook</b> in Google Colab — no local setup needed.</li>
+          <li><b>Run cells top to bottom</b> to pull data and build the model.</li>
+          <li><b>Find your results</b> — the leaderboard and dashboard land in <b>data/processed/</b>.</li>
+        </ol>
+        <a class="btn btn-primary" style="margin-top:18px;" href="https://colab.research.google.com/github/seshankbagavath/Multi-Factor-Equity-Screener/blob/main/screener_colab.ipynb" target="_blank" rel="noopener">Open in Colab →</a>
+      </div>
+      <div class="code"><span class="c"># Run locally instead</span>
+<span class="k">git</span> clone https://github.com/seshankbagavath/<span class="b">Multi-Factor-Equity-Screener</span>.git
+<span class="k">cd</span> Multi-Factor-Equity-Screener
+<span class="k">pip</span> install -r requirements.txt
+<span class="k">jupyter</span> notebook screener_colab.ipynb</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="cta">
+      <h2>Ready to screen the market?</h2>
+      <p>Open FactorForge in Colab and run it end-to-end in your browser.</p>
+      <a class="btn btn-primary" href="https://colab.research.google.com/github/seshankbagavath/Multi-Factor-Equity-Screener/blob/main/screener_colab.ipynb" target="_blank" rel="noopener">▶ Launch the screener</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-inner">
+    <div class="brand" style="font-size:16px;"><span class="mark" style="width:26px;height:26px;font-size:14px;">F</span> FactorForge</div>
+    <div class="tech">Built with <span>Python</span> · <span>pandas</span> · <span>numpy</span> · <span>yfinance</span> · <span>scipy</span> · <span>Plotly</span></div>
+  </div>
+</footer>
+
+</body>
+</html>
